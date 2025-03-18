@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Budgeting Tool</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: #f8f9fa;
+        color: #212529;
+        min-height: 100vh;
+        overflow-x: hidden;
+        position: relative;
+      }
+
+      header {
+        background-color: #343a40;
+        color: white;
+        text-align: center;
+        padding: 30px 20px;
+        position: relative;
+        z-index: 1;
+      }
+
+      #app-container {
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        position: relative;
+        z-index: 1;
+      }
+
+      .form-container {
+        background-color: white;
+        padding: 30px;
+        margin: 20px 0;
+        border-radius: 10px;
+        max-width: 500px;
+        width: 100%;
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+      }
+
+      h2,
+      h3 {
+        color: #495057;
+        margin-bottom: 15px;
+      }
+
+      input,
+      textarea {
+        width: 100%;
+        padding: 12px;
+        margin: 10px 0;
+        border-radius: 6px;
+        border: 1px solid #ced4da;
+      }
+
+      button {
+        width: 100%;
+        padding: 12px;
+        background-color: #007bff;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        margin-top: 10px;
+        transition: background-color 0.3s ease;
+      }
+
+      button:hover {
+        background-color: #0056b3;
+      }
+
+      button:disabled {
+        background-color: #adb5bd;
+        cursor: not-allowed;
+      }
+
+      .error-message {
+        color: red;
+        font-size: 14px;
+      }
+
+      #budget-summary {
+        margin-top: 20px;
+        padding: 20px;
+        background-color: #f1f3f5;
+        border-radius: 8px;
+        text-align: center;
+      }
+
+      #suggestion-section {
+        margin-top: 20px;
+        padding: 20px;
+        background-color: #fff3cd;
+        border-left: 6px solid #ffeeba;
+        border-radius: 5px;
+        font-weight: bold;
+        color: #856404;
+        text-align: center;
+      }
+
+      #chart-section {
+        margin-top: 20px;
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      footer {
+        background-color: #343a40;
+        color: white;
+        text-align: center;
+        padding: 10px;
+        position: fixed;
+        bottom: 0;
+        width: 100%;
+        z-index: 1;
+      }
+
+      #threejs-background {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 0;
+        pointer-events: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="threejs-background"></div>
+
+    <header>
+      <h1>Budgeting Tool</h1>
+      <p>Track your finances and visualize your progress</p>
+    </header>
+
+    <main id="app-container">
+      <div id="login-form" class="form-container">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Enter your email" />
+        <input
+          type="password"
+          id="password"
+          placeholder="Enter your password"
+        />
+        <button onclick="login()">Login</button>
+        <p id="login-error" class="error-message"></p>
+      </div>
+
+      <div id="dashboard" class="form-container hidden">
+        <h2>Track Your Finances</h2>
+
+        <div id="income-section">
+          <h3>Add Income</h3>
+          <input type="text" id="incomeSource" placeholder="Income Source" />
+          <input type="number" id="incomeAmount" placeholder="Amount" />
+          <button onclick="addIncome()">Add Income</button>
+        </div>
+
+        <div id="expenses-section">
+          <h3>Add Expense</h3>
+          <input
+            type="text"
+            id="expenseDescription"
+            placeholder="Expense Description"
+          />
+          <input type="number" id="expenseAmount" placeholder="Amount" />
+          <button onclick="addExpense()">Add Expense</button>
+        </div>
+
+        <section id="budget-summary">
+          <p>Total Income: ₹<span id="totalIncome">0</span></p>
+          <p>Total Expenses: ₹<span id="totalExpenses">0</span></p>
+          <p>Remaining Budget: ₹<span id="remainingBudget">0</span></p>
+        </section>
+
+        <section id="chart-section">
+          <canvas id="expenseChart"></canvas>
+        </section>
+
+        <div id="suggestion-section">
+          <p>
+            Suggestions:
+            <span id="suggestionBox"
+              >Start by adding your income and expenses to receive
+              suggestions.</span
+            >
+          </p>
+        </div>
+
+        <section>
+          <h3>Your Feedback</h3>
+          <textarea
+            id="suggestions"
+            rows="4"
+            placeholder="Your suggestions or feedback..."
+          ></textarea>
+          <button onclick="submitSuggestion()">Submit</button>
+        </section>
+
+        <button onclick="logout()">Logout</button>
+      </div>
+    </main>
+
+    <!-- <footer>
+      &copy; 2025 Budgeting Tool. All rights reserved.
+    </footer> -->
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r148/three.min.js"></script>
+    <script>
+      let loggedInUser = null;
+      let totalIncome = 0;
+      let totalExpenses = 0;
+      let expenses = [];
+      let chart;
+
+      function login() {
+        const email = document.getElementById("email").value;
+        const password = document.getElementById("password").value;
+
+        if (email === "zameer@gmail.com" || password === "12345") {
+          loggedInUser = { email };
+          document.getElementById("login-form").classList.add("hidden");
+          document.getElementById("dashboard").classList.remove("hidden");
+          document.getElementById("login-error").textContent = "";
+          resetInputs();
+          updateBudgetSummary();
+        } else {
+          document.getElementById("login-error").textContent =
+            "Invalid email or password";
+        }
+      }
+
+      function logout() {
+        loggedInUser = null;
+        totalIncome = 0;
+        totalExpenses = 0;
+        expenses = [];
+        document.getElementById("login-form").classList.remove("hidden");
+        document.getElementById("dashboard").classList.add("hidden");
+        resetInputs();
+        updateBudgetSummary();
+        if (chart) chart.destroy();
+      }
+
+      function resetInputs() {
+        [
+          "email",
+          "password",
+          "incomeSource",
+          "incomeAmount",
+          "expenseDescription",
+          "expenseAmount",
+          "suggestions",
+        ].forEach((id) => {
+          document.getElementById(id).value = "";
+        });
+      }
+
+      function addIncome() {
+        const source = document.getElementById("incomeSource").value;
+        const amount = parseFloat(
+          document.getElementById("incomeAmount").value
+        );
+
+        if (source && !isNaN(amount)) {
+          totalIncome += amount;
+          updateBudgetSummary();
+          document.getElementById("incomeSource").value = "";
+          document.getElementById("incomeAmount").value = "";
+        } else {
+          alert("Please provide valid income details");
+        }
+      }
+
+      function addExpense() {
+        const desc = document.getElementById("expenseDescription").value;
+        const amount = parseFloat(
+          document.getElementById("expenseAmount").value
+        );
+
+        if (desc && !isNaN(amount)) {
+          totalExpenses += amount;
+          expenses.push({ description: desc, amount });
+          updateBudgetSummary();
+          updateChart();
+          document.getElementById("expenseDescription").value = "";
+          document.getElementById("expenseAmount").value = "";
+        } else {
+          alert("Please provide valid expense details");
+        }
+      }
+
+      function updateBudgetSummary() {
+        document.getElementById("totalIncome").textContent =
+          totalIncome.toFixed(2);
+        document.getElementById("totalExpenses").textContent =
+          totalExpenses.toFixed(2);
+        document.getElementById("remainingBudget").textContent = (
+          totalIncome - totalExpenses
+        ).toFixed(2);
+        generateSuggestions();
+      }
+
+      function updateChart() {
+        const labels = expenses.map((e) => e.description);
+        const data = expenses.map((e) => e.amount);
+
+        if (chart) chart.destroy();
+
+        chart = new Chart(document.getElementById("expenseChart"), {
+          type: "doughnut",
+          data: {
+            labels,
+            datasets: [
+              {
+                label: "Expenses",
+                data,
+                backgroundColor: [
+                  "#ff6384",
+                  "#36a2eb",
+                  "#ffcd56",
+                  "#4bc0c0",
+                  "#9966ff",
+                ],
+              },
+            ],
+          },
+          options: {
+            responsive: true,
+            plugins: {
+              legend: { position: "bottom" },
+              title: { display: true, text: "Expense Breakdown" },
+            },
+          },
+        });
+      }
+
+      function generateSuggestions() {
+        const suggestionBox = document.getElementById("suggestionBox");
+        const balance = totalIncome - totalExpenses;
+
+        if (totalIncome === 0) {
+          suggestionBox.textContent =
+            "Please add your income to start budgeting.";
+        } else if (totalExpenses === 0) {
+          suggestionBox.textContent =
+            "No expenses yet. Add some to analyze your spending.";
+        } else if (balance < 0) {
+          suggestionBox.textContent =
+            "You are overspending! Reduce expenses or increase income.";
+        } else if (balance < totalIncome * 0.2) {
+          suggestionBox.textContent =
+            "Be cautious. Your spending is high compared to income.";
+        } else {
+          suggestionBox.textContent =
+            "Great job! Your budget is in good shape.";
+        }
+      }
+
+      function submitSuggestion() {
+        const feedback = document.getElementById("suggestions").value;
+        if (feedback.trim() !== "") {
+          alert("Thanks for your feedback!");
+          document.getElementById("suggestions").value = "";
+        } else {
+          alert("Please enter some feedback.");
+        }
+      }
+
+      // Three.js Animation
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      const renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      document
+        .getElementById("threejs-background")
+        .appendChild(renderer.domElement);
+
+      const geometry = new THREE.SphereGeometry(1.5, 64, 64);
+      const material = new THREE.MeshStandardMaterial({
+        color: 0x007bff,
+        metalness: 0.5,
+        roughness: 0.1,
+      });
+      const sphere = new THREE.Mesh(geometry, material);
+      scene.add(sphere);
+
+      const light = new THREE.PointLight(0xffffff, 1, 100);
+      light.position.set(5, 5, 5);
+      scene.add(light);
+
+      camera.position.z = 5;
+
+      function animate() {
+        requestAnimationFrame(animate);
+        sphere.rotation.x += 0.005;
+        sphere.rotation.y += 0.01;
+        renderer.render(scene, camera);
+      }
+
+      animate();
+
+      window.addEventListener("resize", () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+    </script>
+  </body>
+</html>
